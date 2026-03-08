@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from config.db import get_db
 from models.chat_model import Chat
 from services.ai_service import get_ai_reply
+from services.cost_service import estimate_cost
 
 router = APIRouter(prefix="/chat", tags=["Chat"])
 
@@ -15,14 +16,17 @@ class ChatRequest(BaseModel):
 @router.post("/")
 def save_chat(request: ChatRequest, db: Session = Depends(get_db)):
     try:
-        # Get AI reply for user's message
-        ai_reply = get_ai_reply(request.message)
+        # Get AI reply and token usage
+        ai_reply, tokens = get_ai_reply(request.message)
+        cost = estimate_cost(tokens)
         
         new_chat = Chat(
             user_id=request.userId,
             topic_id=request.topicId,
             message=request.message,
-            reply=ai_reply
+            reply=ai_reply,
+            tokens_used=tokens,
+            cost=cost
         )
         
         db.add(new_chat)
@@ -33,7 +37,9 @@ def save_chat(request: ChatRequest, db: Session = Depends(get_db)):
             "status": "success",
             "data": {
                 "reply": ai_reply,
-                "chatId": new_chat.chat_id
+                "chatId": new_chat.chat_id,
+                "tokensUsed": tokens,
+                "estimatedCost": cost
             }
         }
     except Exception as e:

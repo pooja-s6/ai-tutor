@@ -2,7 +2,7 @@ from openai import OpenAI
 from config.settings import OPENAI_API_KEY
 
 client = OpenAI(api_key=OPENAI_API_KEY)
-def get_ai_reply(user_message: str) -> str:
+def get_ai_reply(user_message: str) -> tuple[str, int]:
     # Detect if student is asking for simpler explanation
     simplify_keywords = ["didn't understand", "don't understand", "explain more", 
                          "explain simply", "simpler", "confused", "example"]
@@ -48,7 +48,11 @@ STUDENT QUESTION:
             temperature=0.7
         )
         
-        return response.choices[0].message.content
+        reply = response.choices[0].message.content
+        tokens_used = response.usage.total_tokens
+        
+        return reply, tokens_used
     
     except Exception as e:
-        return f"Sorry, I couldn't process your question. Error: {str(e)}"
+        error_message = f"Sorry, I couldn't process your question. Error: {str(e)}"
+        return error_message, 0
