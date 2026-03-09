@@ -11,6 +11,7 @@ class Chat(Base):
     topic_id = Column(String, nullable=False)
     message = Column(Text, nullable=False)
     reply = Column(Text, nullable=True)
+    model = Column(String, nullable=True)
     tokens_used = Column(Integer, nullable=True)
     cost = Column(Float, nullable=True)
     timestamp = Column(DateTime, default=datetime.utcnow)
