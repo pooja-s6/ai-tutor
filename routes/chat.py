@@ -18,7 +18,7 @@ class ChatRequest(BaseModel):
 def save_chat(request: ChatRequest, db: Session = Depends(get_db)):
     try:
         # Get AI reply and token usage
-        ai_reply, tokens = generate_ai_reply(request.model, request.message)
+        ai_reply, tokens, resolved_model = generate_ai_reply(request.model, request.message)
         cost = estimate_cost(tokens)
         
         new_chat = Chat(
@@ -26,7 +26,7 @@ def save_chat(request: ChatRequest, db: Session = Depends(get_db)):
             topic_id=request.topicId,
             message=request.message,
             reply=ai_reply,
-            model=request.model,
+            model=resolved_model,
             tokens_used=tokens,
             cost=cost
         )
@@ -34,12 +34,18 @@ def save_chat(request: ChatRequest, db: Session = Depends(get_db)):
         db.add(new_chat)
         db.commit()
         db.refresh(new_chat)
+
+        # Confirm the write is persisted in DB before returning success.
+        saved_chat = db.query(Chat).filter(Chat.chat_id == new_chat.chat_id).first()
+        if not saved_chat:
+            raise ValueError("Chat record was not persisted")
         
         return {
             "status": "success",
             "data": {
                 "reply": ai_reply,
                 "chatId": new_chat.chat_id,
+                "model": resolved_model,
                 "tokensUsed": tokens,
                 "estimatedCost": cost
             }
@@ -58,8 +64,13 @@ def get_history(user_id: str, db: Session = Depends(get_db)):
             "data": [
                 {
                     "chatId": chat.chat_id,
+                    "userId": chat.user_id,
+                    "topicId": chat.topic_id,
                     "message": chat.message,
                     "reply": chat.reply,
+                    "model": chat.model,
+                    "tokensUsed": chat.tokens_used,
+                    "estimatedCost": chat.cost,
                     "timestamp": chat.timestamp.isoformat() if chat.timestamp else None
                 }
                 for chat in chats
